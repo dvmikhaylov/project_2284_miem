@@ -1,0 +1,17 @@
+# Document processing
+python-docx>=1.1.0
+PyPDF2>=3.0.1
+pdfplumber>=0.10.3
+
+# Russian NLP
+natasha>=1.5.0
+spacy>=3.7.0
+# Для установки русской модели: python -m spacy download ru_core_news_md
+
+# Transformers and ML (опционально, для будущих расширений)
+# transformers>=4.36.0
+# torch>=2.1.0  # Для Mac M3 используйте: pip install torch torchvision torchaudio
+
+# Utilities
+pydantic>=2.5.0
+tqdm>=4.66.0

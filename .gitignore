@@ -38,6 +38,7 @@ ENV/
 output/
 *.json
 !requirements.txt
+!business_processes/business_processes.json
 
 # Model files (если будут большие модели)
 models/
@@ -57,9 +58,10 @@ logs/
 # Jupyter Notebook
 .ipynb_checkpoints
 
-# Environment variables
+# Environment variables / secrets
 .env
 .env.local
+key.sh
 
 # MacOS
 .DS_Store

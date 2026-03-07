@@ -1,5 +1,5 @@
 """
-Модуль для извлечения именованных сущностей (NER)
+Модуль для извлечения именованных сущностей (NER) — baseline
 """
 from typing import List, Dict, Optional
 import spacy
@@ -28,7 +28,6 @@ class NERExtractor:
             raise ValueError(f"Неподдерживаемый тип модели: {model_type}")
     
     def _init_natasha(self):
-        """Инициализация Natasha"""
         self.segmenter = Segmenter()
         self.morph_vocab = MorphVocab()
         self.emb = NewsEmbedding()
@@ -36,7 +35,6 @@ class NERExtractor:
         self.ner_tagger = NewsNERTagger(self.emb)
     
     def _init_spacy(self):
-        """Инициализация SpaCy"""
         try:
             self.nlp = spacy.load("ru_core_news_md")
         except OSError:
@@ -46,7 +44,6 @@ class NERExtractor:
             )
     
     def extract_entities_natasha(self, text: str) -> List[Dict]:
-        """Извлечение сущностей с помощью Natasha"""
         doc = Doc(text)
         doc.segment(self.segmenter)
         doc.tag_morph(self.morph_tagger)
@@ -56,85 +53,60 @@ class NERExtractor:
         for span in doc.spans:
             if span.type in ['PER', 'ORG', 'LOC']:
                 entity_text = span.text.strip()
-                
-                # Фильтрация: пропускаем слишком короткие или некорректные сущности
                 if len(entity_text) < 2:
                     continue
-                
-                # Фильтрация очевидно неправильных сущностей
                 if self._is_invalid_entity(entity_text, span.type):
                     continue
-                
                 entities.append({
                     'text': entity_text,
                     'type': span.type,
                     'start': span.start,
                     'end': span.stop,
-                    'confidence': 1.0  # Natasha не предоставляет confidence
+                    'confidence': 1.0
                 })
-        
         return entities
     
     def _is_invalid_entity(self, text: str, entity_type: str) -> bool:
-        """Проверяет, является ли сущность некорректной"""
         text_lower = text.lower().strip()
-        
-        # Список стоп-слов и некорректных паттернов
         invalid_patterns = {
-            'PER': ['договор', 'доверенность', 'стороны', 'подрядчик', 'заказчик', 
+            'PER': ['договор', 'доверенность', 'стороны', 'подрядчик', 'заказчик',
                     'исполнитель', 'сторона', 'договоре', 'договора', 'договору',
                     'согласование', 'согласования', 'согласованию'],
             'ORG': ['договор', 'доверенность', 'стороны', 'договоре', 'договора',
                     'согласование', 'согласования', 'согласованию', 'лист'],
             'LOC': ['договор', 'доверенность', 'согласование']
         }
-        
-        # Проверка на стоп-слова
         if entity_type in invalid_patterns:
             for pattern in invalid_patterns[entity_type]:
                 if pattern in text_lower:
                     return True
-        
-        # Пропускаем сущности, состоящие только из цифр или знаков препинания
         if text.replace(' ', '').replace('-', '').replace('.', '').isdigit():
             return True
-        
-        # Пропускаем сущности, которые являются только заголовками/метками
         if text_lower in ['согласование', 'согласования', 'лист', 'страница', 'документ']:
             return True
-        
         return False
     
     def extract_entities_spacy(self, text: str) -> List[Dict]:
-        """Извлечение сущностей с помощью SpaCy"""
         doc = self.nlp(text)
         entities = []
-        
         for ent in doc.ents:
-            # Маппинг типов SpaCy на стандартные
             entity_type = ent.label_
             if entity_type in ['PER', 'ORG', 'LOC', 'MISC']:
                 entity_text = ent.text.strip()
-                
-                # Фильтрация
                 if len(entity_text) < 2:
                     continue
-                
                 if self._is_invalid_entity(entity_text, entity_type):
                     continue
-                
                 entities.append({
                     'text': entity_text,
                     'type': entity_type,
                     'start': ent.start_char,
                     'end': ent.end_char,
-                    'confidence': 1.0  # SpaCy не всегда предоставляет confidence
+                    'confidence': 1.0
                 })
-        
         return entities
     
     def extract(self, text: str) -> List[Dict]:
-        """Основной метод извлечения сущностей"""
         if self.model_type == "natasha":
             return self.extract_entities_natasha(text)
         elif self.model_type == "spacy":

@@ -2,76 +2,59 @@
 
 ## Установка
 
-1. Установите зависимости:
 ```bash
 pip install -r requirements.txt
 ```
 
-Или используйте скрипт установки:
-```bash
-./setup.sh
-```
-
-2. (Опционально) Установите русскую модель для SpaCy:
+Опционально (для baseline при использовании SpaCy вместо Natasha):
 ```bash
 python -m spacy download ru_core_news_md
 ```
 
 ## Запуск
 
-### Тестирование на одном документе:
+Два подхода: **baseline** и **OpenRouter**.
+
+### Baseline (без API-ключей)
 ```bash
-python test_pipeline.py
+python run.py --baseline
+python run.py --baseline --file validate_data/Договор.docx
+python run.py --baseline --dir validate_data --output output/baseline
 ```
 
-### Обработка всех документов из validate_data:
+Или напрямую:
 ```bash
-python main.py
+python -m baseline.main --dir validate_data --output output/baseline
 ```
 
-### Обработка конкретного файла:
+### OpenRouter (один вызов LLM на документ)
+Ключ в `key.sh`: `export OPENROUTER_API_KEY=sk-or-...`
 ```bash
-python main.py --file validate_data/Договор.docx
+source key.sh
+python run.py --openrouter
+python run.py --openrouter --file validate_data/Договор.docx --output output/exp_llama_relations
 ```
 
-### Обработка всех файлов из директории:
+Или напрямую:
 ```bash
-python main.py --dir validate_data/
+source key.sh
+python -m experiments.exp_llama_relations.run --dir validate_data
+```
+
+### Оба подхода разом
+```bash
+source key.sh
+python -m experiments.run_all
 ```
 
 ## Результаты
 
-Результаты сохраняются в папку `output/` в формате JSON.
+- **Baseline:** `output/baseline/<имя_файла>_result.json`
+- **OpenRouter:** `output/exp_llama_relations/<имя_файла>_result.json`
 
-Каждый файл содержит:
-- Список найденных сущностей (PER, ORG, LOC)
-- Связи между сущностями
-- Цепочки связей (например: ВДНХ -> заключить_договор -> ООО ПромТрансНефть)
-- Классификацию в бизнес-процессы
-- Статистику обработки
-
-## Пример вывода
-
-```json
-{
-  "entities": [
-    {"text": "ВДНХ", "type": "ORG", "id": 0},
-    {"text": "ООО ПромТрансНефть", "type": "ORG", "id": 1}
-  ],
-  "relation_chains": [
-    ["ВДНХ", "заключить_договор", "ООО ПромТрансНефть"]
-  ],
-  "business_process": {
-    "category": "Закупки и административные процессы",
-    "subprocess": "Контракты с поставщиками",
-    "confidence": 0.8
-  }
-}
-```
+В каждом JSON: сущности (entities), связи (relations), цепочки (relation_chains), бизнес-процесс (business_process), статистика.
 
 ## Настройка
 
-Отредактируйте `config.py` для изменения:
-- Модели NER (natasha или spacy)
-- Использования GPU
-- Размеров чанков для обработки
+- **Baseline:** `baseline/config.py` (NER, GPU, чанки, путь к бизнес-процессам).
+- **OpenRouter:** `baseline_with_llama_and_rubert/config.py` (OPENROUTER_MODEL, таймаут, ретраи). Промпт: `baseline_with_llama_and_rubert/unified_openrouter.py` → `_build_unified_prompt`.

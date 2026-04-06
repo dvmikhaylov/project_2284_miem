@@ -1,73 +1,98 @@
-# Пайплайн извлечения информации из документов (ВДНХ)
+# Анализ документов и бизнес-процессов
 
-Извлечение сущностей (PER, ORG, LOC), связей между ними и классификация документов в бизнес-процессы. Два подхода: **baseline** и **OpenRouter (LLM)**.
-
-## Два подхода
-
-| Подход | Описание | Результаты |
-|--------|----------|------------|
-| **Baseline** | NER (Natasha), связи по паттернам, классификация по ключевым словам | `output/baseline/` |
-| **OpenRouter** | Один вызов LLM на документ: NER + связи + бизнес-процесс. Модель по умолчанию платная (gpt-4o) | `output/exp_llama_relations/` |
-
-## Быстрый старт
-
-```bash
-# Установка
-pip install -r requirements.txt
-
-# Baseline (без ключей)
-python run.py --baseline
-python run.py --baseline --file validate_data/Договор.docx
-python run.py --baseline --dir validate_data --output output/baseline
-
-# OpenRouter (нужен ключ: source key.sh)
-python run.py --openrouter
-python run.py --openrouter --file validate_data/Договор.docx --output output/exp_llama_relations
-```
-
-Или напрямую:
-```bash
-python -m baseline.main --dir validate_data --output output/baseline
-source key.sh && python -m experiments.exp_llama_relations.run --dir validate_data
-```
-
-## Структура проекта
-
-- **`run.py`** — единая точка входа: `--baseline` или `--openrouter`, опции `--file`, `--dir`, `--output`.
-- **`baseline/`** — baseline-пайплайн: чтение документов, NER (Natasha), связи по паттернам, классификация по ключевым словам. Конфиг: `baseline/config.py`.
-- **`baseline_with_llama_and_rubert/`** — OpenRouter (unified LLM), fallback NER/связи/RuBERT. Промпт и логика в `unified_openrouter.py`, конфиг в `config.py`.
-- **`experiments/exp_llama_relations/`** — запуск OpenRouter-пайплайна на файлах (поддержка `--file`, `--dir`, `--output`).
-- **`experiments/run_all.py`** — последовательный запуск baseline и OpenRouter на `validate_data/`.
-- **`validate_data/`** — тестовые документы (DOCX, PDF, TXT).
-- **`business_processes/business_processes.json`** — список бизнес-процессов для классификации.
-
-## Этапы пайплайна (общие)
-
-1. **Чтение документа** — PDF, DOCX, TXT.
-2. **NER** — извлечение сущностей: персоны (PER), организации (ORG), локации (LOC).
-3. **Связи** — связи между сущностями (кто с кем, тип связи).
-4. **Цепочки** — цепочки вида [сущность, связь, сущность].
-5. **Бизнес-процесс** — отнесение документа к одному процессу из справочника.
-
-## OpenRouter: настройка
-
-- Ключ: [openrouter.ai/keys](https://openrouter.ai/keys) → сохранить в `key.sh`: `export OPENROUTER_API_KEY=sk-or-...`
-- Модель по умолчанию: **платная** `openai/gpt-4o`. Задать другую: `OPENROUTER_MODEL=openai/gpt-oss-120b:free` (бесплатная) или любая модель из каталога OpenRouter.
-- Таймаут 300 с, один ретрай при 429/таймауте. Промпт настраивается в `baseline_with_llama_and_rubert/unified_openrouter.py` (функция `_build_unified_prompt`).
-- Лог промптов и ответов: `output/prompts_unified.log`.
-
-## Формат результата (JSON)
-
-Для каждого документа сохраняется JSON:
-
-- `document` — имя файла
-- `entities` — список сущностей с полями `text`, `type` (PER/ORG/LOC), `id`
-- `relations` — список связей: `source`, `target`, `relation`, `source_type`, `target_type`, `context`
-- `relation_chains` — цепочки вида `[источник, связь, цель]`
-- `business_process` — `category`, `subprocess`, `number`, `confidence`, `alternatives`
-- `statistics` — количество сущностей, связей, цепочек, длина текста
+Сервис извлекает из договоров и смежных документов сущности, связи, цепочки действий и привязки к справочнику процессов (LLM), сохраняет результат в SQLite и отдаёт агрегаты в REST API и в веб-интерфейсе (Streamlit).
 
 ## Требования
 
-- Python 3.9+
-- Зависимости: `requirements.txt` (в т.ч. pymupdf, python-docx, natasha, transformers, torch для baseline и fallback OpenRouter).
+- Python 3.11+ (рекомендуется)
+- Зависимости: `pip install -r requirements.txt`
+
+## Установка
+
+```bash
+cd /path/to/repo
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+Для обработки документов задайте ключ API модели (см. таблицу ниже). Файл `key.sh` в корне подхватывают `scripts/start_api.sh` и `scripts/start_api_and_streamlit.sh`, если переменная ещё не экспортирована в окружении.
+
+## Запуск (корень репозитория)
+
+Все команды ниже выполняйте из каталога, где лежат `api/` и `NLP/`, с `PYTHONPATH=.` или активированным venv из корня.
+
+**API и UI одной командой (рекомендуется):**
+
+```bash
+chmod +x scripts/start_api_and_streamlit.sh   # один раз
+./scripts/start_api_and_streamlit.sh
+```
+
+**Только API:**
+
+```bash
+export PYTHONPATH=.
+./scripts/start_api.sh
+# или: python -m uvicorn api.main:app --host 127.0.0.1 --port 8000
+```
+
+- Документация API: `http://127.0.0.1:8000/docs`
+- Health: `GET /health`
+
+**Только Streamlit** (API должен быть доступен по `API_URL`):
+
+```bash
+export API_URL=http://127.0.0.1:8000
+./scripts/start_streamlit.sh
+```
+
+Порты: `API_PORT`, `STREAMLIT_PORT`, хост API: `API_HOST`. Остановка процессов — **Ctrl+C** (не Ctrl+Z).
+
+**CLI извлечения без записи в БД:**
+
+```bash
+python run.py --file path/to/document.docx
+```
+
+## Структура репозитория
+
+| Каталог / файл | Назначение |
+|----------------|------------|
+| `api/` | FastAPI, SQLAlchemy, миграции SQLite, агрегаты дашборда |
+| `NLP/` | Чтение docx/pdf/txt, промпты, вызов LLM, постобработка JSON |
+| `streamlit_app/` | UI: дашборд, загрузка, просмотр документов |
+| `business_processes/business_processes.json` | Справочник процессов и приоритеты |
+| `data/` | БД SQLite (в `.gitignore`) |
+| `tests/` | Смоук-тесты API |
+
+## Переменные окружения
+
+Полный список и значения по умолчанию для пайплайна извлечения — в `NLP/.../config.py` (подпакет пайплайна в каталоге `NLP/`).
+
+**Минимально для работы ingest / CLI:**
+
+| Переменная | Описание |
+|------------|----------|
+| `OPENROUTER_API_KEY` | Секрет HTTP API модели (обязателен для обработки документов) |
+| `OPENROUTER_MODEL` | Идентификатор модели в API провайдера |
+
+**API и дашборд:**
+
+| Переменная | Описание |
+|------------|----------|
+| `DATABASE_URL` | SQLite по умолчанию: `sqlite:///data/documents.sqlite3` |
+| `DECAY_HALF_LIFE_DAYS` | Полураспад веса документов в агрегатах (по умолчанию `90`) |
+| `CORS_ORIGINS` | Origins для браузерного доступа к API |
+
+Параметры дашборда в query API: `process_group` (`catalog` \| `macro` \| `meso` \| `free`), `actor_group` (`original` \| `meso` \| `macro`); для строк вне каталога в drilldown используйте `process_key` из ответа (приоритет над `process_id`). Детали — в Swagger.
+
+## Тесты
+
+Смоук-тесты API без вызова LLM и без внешней сети:
+
+```bash
+PYTHONPATH=. python3 -m pytest tests/test_api_smoke.py -v
+```
+
+Используется отдельный файл БД `data/test_api_smoke.sqlite3`.

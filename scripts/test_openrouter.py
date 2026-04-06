@@ -1,8 +1,5 @@
 #!/usr/bin/env python3
-"""
-Проверка вызова OpenRouter (gpt-oss-120b:free): промпт + ответ.
-Запуск: source key.sh && python scripts/test_openrouter.py
-"""
+"""Проверка вызова OpenRouter через текущий config."""
 import os
 import sys
 from pathlib import Path
@@ -23,10 +20,10 @@ if not os.environ.get("OPENROUTER_API_KEY"):
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from baseline_with_llama_and_rubert.openrouter_client import call_openrouter
-from baseline_with_llama_and_rubert.config import OPENROUTER_API_KEY, OPENROUTER_MODEL
+from NLP.openrouter_pipeline.openrouter_client import call_openrouter
+from NLP.openrouter_pipeline.config import OPENROUTER_API_KEY, OPENROUTER_MODEL
 
-SAMPLE_TEXT = """АО «ВДНХ» и ООО «Рога и копыта» заключили договор. Директор Иванов И.И. подписал документ. Москва."""
+SAMPLE_TEXT = """АО «Горизонт» и ООО «Рога и копыта» заключили договор. Директор Иванов И.И. подписал документ. Москва."""
 
 
 def main():
@@ -37,7 +34,7 @@ def main():
     print()
     prompt = """Извлеки из текста именованные сущности: персоны (PER), организации (ORG), локации (LOC).
 Используй только типы PER, ORG, LOC. Ответ — только JSON-массив объектов с полями "text" и "type".
-Пример: [{"text": "АО ВДНХ", "type": "ORG"}, {"text": "Иванов И.И.", "type": "PER"}]
+Пример: [{"text": "АО Горизонт", "type": "ORG"}, {"text": "Иванов И.И.", "type": "PER"}]
 
 Текст:
 """ + SAMPLE_TEXT + """
@@ -64,7 +61,7 @@ def main():
     if not resp.strip():
         print("Ответ пустой.")
         sys.exit(1)
-    print("--- Ответ 120b ---")
+    print("--- Ответ ---")
     print(resp)
     print("--- Конец ответа ---")
     print("OK: вызов OpenRouter прошёл успешно.")

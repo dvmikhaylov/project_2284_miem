@@ -1,0 +1,26 @@
+# Подписи в боковом меню (Streamlit ≥ 1.36). Запуск из корня: streamlit run streamlit_app/Home.py
+
+[[pages]]
+path = "streamlit_app/Home.py"
+name = "О проекте"
+icon = "🏠"
+
+[[pages]]
+path = "streamlit_app/pages/1_Дашборд.py"
+name = "Дашборд"
+icon = "📊"
+
+[[pages]]
+path = "streamlit_app/pages/2_Загрузка.py"
+name = "Загрузка"
+icon = "📤"
+
+[[pages]]
+path = "streamlit_app/pages/3_Документ_по_хэшу.py"
+name = "Документ по хэшу"
+icon = "🔍"
+
+[[pages]]
+path = "streamlit_app/pages/4_Справочник_и_документы.py"
+name = "Справочник и документы"
+icon = "📚"

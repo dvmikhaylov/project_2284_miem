@@ -34,6 +34,9 @@ ENV/
 *~
 .DS_Store
 
+# Локальная БД API
+data/
+
 # Output files
 output/
 *.json
